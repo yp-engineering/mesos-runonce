@@ -34,7 +34,7 @@ import (
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	util "github.com/mesos/mesos-go/mesosutil"
 	sched "github.com/mesos/mesos-go/scheduler"
-	mlog "github.com/yp-engineering/mesos-runounce/mesosutil"
+	mlog "github.com/yp-engineering/mesos-runonce/mesosutil"
 	"golang.org/x/net/context"
 )
 
