@@ -19,11 +19,13 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 
 	"github.com/gogo/protobuf/proto"
@@ -43,7 +45,7 @@ var (
 	authProvider = flag.String("mesos_authentication_provider", sasl.ProviderName,
 		fmt.Sprintf("Authentication provider to use, default is SASL that supports mechanisms: %+v", mech.ListSupported()))
 	master              = flag.String("master", "127.0.0.1:5050", "Master address <ip:port>")
-	taskCount           = flag.Int("task-count", 5, "Total task count to run.")
+	taskCount           = flag.Int("task-count", 1, "Total task count to run.")
 	mesosAuthPrincipal  = flag.String("mesos_authentication_principal", "", "Mesos authentication principal.")
 	mesosAuthSecretFile = flag.String("mesos_authentication_secret_file", "", "Mesos authentication secret file.")
 	dockerImage         = flag.String("docker-image", "", "Docker image to run.")
@@ -108,7 +110,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 			mems += res.GetScalar().GetValue()
 		}
 
-		log.Infoln("Received Offer <", offer.Id.GetValue(), "> with cpus=", cpus, " mem=", mems)
+		log.Infoln("Received Offer <", offer.Id.GetValue(), "> on host ", *offer.Hostname, "with cpus=", cpus, " mem=", mems)
 
 		remainingCpus := cpus
 		remainingMems := mems
@@ -154,8 +156,61 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 	}
 }
 
+type MesosTaskStatusMounts []struct {
+	Source string `json:"Source"`
+}
+
+type MesosTaskStatusConfig struct {
+	Hostname   string `json:"Hostname"`
+	Domainname string `json:"Domainname"`
+}
+
+type MesosTaskStatusData []struct {
+	Mounts MesosTaskStatusMounts `json:"Mounts"`
+	Config MesosTaskStatusConfig `json:"Config"`
+}
+
+func fetchLogs(status *mesos.TaskStatus) {
+	var mtsd MesosTaskStatusData
+	err := json.Unmarshal(status.Data, &mtsd)
+	if err != nil {
+		log.Errorf("Problem reading task status data: %v", string(status.Data[:]))
+	}
+	// status.Data is an array of one value :( Maybe there is a better way to marshal it?
+	firstMtsd := mtsd[0]
+	log.Infof("firstMtsd: %#v", firstMtsd)
+	var dir string
+	for _, mount := range firstMtsd.Mounts {
+		source := mount.Source
+		log.Infoln("mount: ", source)
+		matched, _ := regexp.MatchString("slaves.*frameworks.*executors", source)
+		if matched {
+			dir = source
+		}
+	}
+	url := fmt.Sprintf("http://%s.%s:5051/files/read.json?path=%s/stdout&offset=0&length=999999999999999999",
+		firstMtsd.Config.Hostname, firstMtsd.Config.Domainname, dir)
+	bodyData, _ := mlog.FetchLog(url)
+
+	var logData LogData
+	err = json.Unmarshal(bodyData, &logData)
+	if err != nil {
+		log.Errorf("Problem reading log data: %v", string(bodyData[:]))
+	}
+	log.Info(logData.Data)
+}
+
+type LogData struct {
+	Data   string `json:"data"`
+	Offset int    `json:"offset"`
+}
+
 func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
 	log.Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
+	if status.GetState() == mesos.TaskState_TASK_RUNNING {
+		fetchLogs(status)
+	}
+
 	if status.GetState() == mesos.TaskState_TASK_FINISHED {
 		sched.tasksFinished++
 	}

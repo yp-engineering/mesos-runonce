@@ -31,7 +31,11 @@ func MesosLogs(host, taskId, iotype string, offset, length int) ([]byte, error) 
 	logUrl := fmt.Sprintf("http://%s/files/read.json?path=%s/%s&offset=%d&length=%d",
 		host, dir, iotype, offset, length)
 
-	resp, err = defaultClient.Get(logUrl)
+	return FetchLog(logUrl)
+}
+
+func FetchLog(logUrl string) ([]byte, error) {
+	resp, err := defaultClient.Get(logUrl)
 	if err != nil {
 		return nil, err
 	}
