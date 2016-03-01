@@ -4,39 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"regexp"
 
 	log "github.com/golang/glog"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 )
-
-func MesosLogs(host, taskId, iotype string, offset, length int) ([]byte, error) {
-	stateUrl := "http://" + host + "/state.json"
-
-	resp, err := defaultClient.Get(stateUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-	var ms MesosState
-	err = json.NewDecoder(resp.Body).Decode(&ms)
-	if err != nil {
-		return nil, err
-	}
-
-	dir := ms.Directory(taskId)
-
-	if dir == "" {
-		return nil, ProxyError{"directory not found", http.StatusInternalServerError}
-	}
-
-	logUrl := fmt.Sprintf("http://%s/files/read.json?path=%s/%s&offset=%d&length=%d",
-		host, dir, iotype, offset, length)
-
-	return FetchLog(logUrl)
-}
 
 func FetchLog(logUrl string) ([]byte, error) {
 	resp, err := defaultClient.Get(logUrl)
