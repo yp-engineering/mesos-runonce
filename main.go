@@ -48,6 +48,7 @@ var (
 	taskCount           = flag.Int("task-count", 1, "Total task count to run.")
 	mesosAuthPrincipal  = flag.String("mesos_authentication_principal", "", "Mesos authentication principal.")
 	mesosAuthSecretFile = flag.String("mesos_authentication_secret_file", "", "Mesos authentication secret file.")
+	mesosRunasUser      = flag.String("user", "root", "Mesos user to run tasks as.")
 	dockerImage         = flag.String("docker-image", "", "Docker image to run.")
 	dockerCmd           = flag.String("docker-cmd", "", "Docker command to run.")
 	dCpus               = flag.Float64("cpus", 1.0, "How many CPUs to use.")
@@ -289,7 +290,7 @@ func main() {
 
 	// the framework
 	fwinfo := &mesos.FrameworkInfo{
-		User: proto.String(""), // Mesos-go will fill in user.
+		User: proto.String(*mesosRunasUser),
 		Name: proto.String("Test Framework (Go)"),
 	}
 
