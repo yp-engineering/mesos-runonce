@@ -39,6 +39,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+var eventCh chan *mesos.TaskStatus
+
 var (
 	address      = flag.String("address", "127.0.0.1", "Binding address for artifact server")
 	authProvider = flag.String("mesos_authentication_provider", sasl.ProviderName,
@@ -73,13 +75,26 @@ func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
 func (sched *ExampleScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.Infoln("Framework Registered with Master ", masterInfo)
 }
-
 func (sched *ExampleScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
 	log.Infoln("Framework Re-Registered with Master ", masterInfo)
 }
-
 func (sched *ExampleScheduler) Disconnected(sched.SchedulerDriver) {
 	log.Fatalf("disconnected from master, aborting")
+}
+func (sched *ExampleScheduler) OfferRescinded(_ sched.SchedulerDriver, oid *mesos.OfferID) {
+	log.Errorf("offer rescinded: %v", oid)
+}
+func (sched *ExampleScheduler) FrameworkMessage(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, msg string) {
+	log.Errorf("framework message from executor %q slave %q: %q", eid, sid, msg)
+}
+func (sched *ExampleScheduler) SlaveLost(_ sched.SchedulerDriver, sid *mesos.SlaveID) {
+	log.Errorf("slave lost: %v", sid)
+}
+func (sched *ExampleScheduler) ExecutorLost(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, code int) {
+	log.Errorf("executor %q lost on slave %q code %d", eid, sid, code)
+}
+func (sched *ExampleScheduler) Error(_ sched.SchedulerDriver, err string) {
+	log.Errorf("Scheduler received error: %v", err)
 }
 
 func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
@@ -182,22 +197,6 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 	}
 }
 
-func (sched *ExampleScheduler) OfferRescinded(_ sched.SchedulerDriver, oid *mesos.OfferID) {
-	log.Errorf("offer rescinded: %v", oid)
-}
-func (sched *ExampleScheduler) FrameworkMessage(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, msg string) {
-	log.Errorf("framework message from executor %q slave %q: %q", eid, sid, msg)
-}
-func (sched *ExampleScheduler) SlaveLost(_ sched.SchedulerDriver, sid *mesos.SlaveID) {
-	log.Errorf("slave lost: %v", sid)
-}
-func (sched *ExampleScheduler) ExecutorLost(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, code int) {
-	log.Errorf("executor %q lost on slave %q code %d", eid, sid, code)
-}
-func (sched *ExampleScheduler) Error(_ sched.SchedulerDriver, err string) {
-	log.Errorf("Scheduler received error: %v", err)
-}
-
 // ----------------------- func init() ------------------------- //
 
 func init() {
@@ -205,6 +204,36 @@ func init() {
 	log.Infoln("Initializing the Example Scheduler...")
 }
 
+func fetchLogs() {
+	timer := time.Tick(500 * time.Millisecond)
+	finished := false
+	offset := 0
+	var startedStatus *mesos.TaskStatus
+	for {
+		select {
+		case status := <-eventCh:
+			if status.GetState() == mesos.TaskState_TASK_RUNNING {
+				startedStatus = status
+			}
+			if status.GetState() == mesos.TaskState_TASK_FINISHED {
+				finished = true
+			}
+		case <-timer:
+			if startedStatus != nil {
+				data, err := mlog.FetchLogs(startedStatus, offset)
+				if err != nil {
+					log.Infof("fetch logs err: %s\n", err)
+				} else {
+					fmt.Print(string(data))
+					if len(data) == 0 && finished {
+						return
+					}
+					offset += len(data)
+				}
+			}
+		}
+	}
+}
 func prepareExecutorInfo() *mesos.ExecutorInfo {
 	// Create mesos scheduler driver.
 	containerType := mesos.ContainerInfo_DOCKER
@@ -285,37 +314,4 @@ func main() {
 		log.Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
 	}
 	log.Infof("framework terminating")
-}
-
-var eventCh chan *mesos.TaskStatus
-
-func fetchLogs() {
-	timer := time.Tick(500 * time.Millisecond)
-	finished := false
-	offset := 0
-	var startedStatus *mesos.TaskStatus
-	for {
-		select {
-		case status := <-eventCh:
-			if status.GetState() == mesos.TaskState_TASK_RUNNING {
-				startedStatus = status
-			}
-			if status.GetState() == mesos.TaskState_TASK_FINISHED {
-				finished = true
-			}
-		case <-timer:
-			if startedStatus != nil {
-				data, err := mlog.FetchLogs(startedStatus, offset)
-				if err != nil {
-					log.Infof("fetch logs err: %s\n", err)
-				} else {
-					fmt.Printf("output: %s\n", data)
-					if len(data) == 0 && finished {
-						return
-					}
-					offset += len(data)
-				}
-			}
-		}
-	}
 }
