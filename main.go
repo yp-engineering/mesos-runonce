@@ -19,14 +19,13 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
-	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	log "github.com/golang/glog"
@@ -157,60 +156,9 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 	}
 }
 
-type MesosTaskStatusMounts []struct {
-	Source string `json:"Source"`
-}
-
-type MesosTaskStatusConfig struct {
-	Hostname   string `json:"Hostname"`
-	Domainname string `json:"Domainname"`
-}
-
-type MesosTaskStatusData []struct {
-	Mounts MesosTaskStatusMounts `json:"Mounts"`
-	Config MesosTaskStatusConfig `json:"Config"`
-}
-
-func fetchLogs(status *mesos.TaskStatus) {
-	var mtsd MesosTaskStatusData
-	err := json.Unmarshal(status.Data, &mtsd)
-	if err != nil {
-		log.Errorf("Problem reading task status data: %v", string(status.Data[:]))
-	}
-	// status.Data is an array of one value :( Maybe there is a better way to marshal it?
-	firstMtsd := mtsd[0]
-	log.Infof("firstMtsd: %#v", firstMtsd)
-	var dir string
-	for _, mount := range firstMtsd.Mounts {
-		source := mount.Source
-		log.Infoln("mount: ", source)
-		matched, _ := regexp.MatchString("slaves.*frameworks.*executors", source)
-		if matched {
-			dir = source
-		}
-	}
-	url := fmt.Sprintf("http://%s.%s:5051/files/read.json?path=%s/stdout&offset=0&length=999999999999999999",
-		firstMtsd.Config.Hostname, firstMtsd.Config.Domainname, dir)
-	bodyData, _ := mlog.FetchLog(url)
-
-	var logData LogData
-	err = json.Unmarshal(bodyData, &logData)
-	if err != nil {
-		log.Errorf("Problem reading log data: %v", string(bodyData[:]))
-	}
-	log.Info(logData.Data)
-}
-
-type LogData struct {
-	Data   string `json:"data"`
-	Offset int    `json:"offset"`
-}
-
 func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
 	log.Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
-	if status.GetState() == mesos.TaskState_TASK_RUNNING {
-		fetchLogs(status)
-	}
+	eventCh <- status
 
 	if status.GetState() == mesos.TaskState_TASK_FINISHED {
 		sched.tasksFinished++
@@ -331,8 +279,43 @@ func main() {
 		log.Errorln("Unable to create a SchedulerDriver ", err.Error())
 	}
 
+	eventCh = make(chan *mesos.TaskStatus)
+	go fetchLogs()
 	if stat, err := driver.Run(); err != nil {
 		log.Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
 	}
 	log.Infof("framework terminating")
+}
+
+var eventCh chan *mesos.TaskStatus
+
+func fetchLogs() {
+	timer := time.Tick(500 * time.Millisecond)
+	finished := false
+	offset := 0
+	var startedStatus *mesos.TaskStatus
+	for {
+		select {
+		case status := <-eventCh:
+			if status.GetState() == mesos.TaskState_TASK_RUNNING {
+				startedStatus = status
+			}
+			if status.GetState() == mesos.TaskState_TASK_FINISHED {
+				finished = true
+			}
+		case <-timer:
+			if startedStatus != nil {
+				data, err := mlog.FetchLogs(startedStatus, offset)
+				if err != nil {
+					log.Infof("fetch logs err: %s\n", err)
+				} else {
+					fmt.Printf("output: %s\n", data)
+					if len(data) == 0 && finished {
+						return
+					}
+					offset += len(data)
+				}
+			}
+		}
+	}
 }
