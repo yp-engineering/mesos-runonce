@@ -9,6 +9,8 @@ Something like the following has been working:
                 -address <routable IP address of localhost> \
                 -v 1 \
                 -task-count 1 \
+                -mesos_authentication_principal mesos_user \
+                -mesos_authentication_secret_file <(printf password) \
                 -docker-cmd "env;sleep 20;ls" \
                 -docker-image alpine \
                 -cpus 2 \
