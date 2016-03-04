@@ -43,12 +43,13 @@ var eventCh chan *mesos.TaskStatus
 
 var (
 	address      = flag.String("address", "127.0.0.1", "Binding address for artifact server")
-	authProvider = flag.String("mesos_authentication_provider", sasl.ProviderName,
+	bindingPort  = flag.Uint("port", 0, "Port for address to use for mesos to callback.")
+	authProvider = flag.String("authentication-provider", sasl.ProviderName,
 		fmt.Sprintf("Authentication provider to use, default is SASL that supports mechanisms: %+v", mech.ListSupported()))
 	master              = flag.String("master", "127.0.0.1:5050", "Master address <ip:port>")
 	taskCount           = flag.Int("task-count", 1, "Total task count to run.")
-	mesosAuthPrincipal  = flag.String("mesos_authentication_principal", "", "Mesos authentication principal.")
-	mesosAuthSecretFile = flag.String("mesos_authentication_secret_file", "", "Mesos authentication secret file.")
+	mesosAuthPrincipal  = flag.String("principal", "", "Mesos authentication principal.")
+	mesosAuthSecretFile = flag.String("secret-file", "", "Mesos authentication secret file.")
 	mesosRunasUser      = flag.String("user", "root", "Mesos user to run tasks as.")
 	dockerImage         = flag.String("docker-image", "", "Docker image to run.")
 	dockerCmd           = flag.String("docker-cmd", "", "Docker command to run.")
@@ -151,7 +152,8 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 					util.NewScalarResource("mem", *dMem),
 				},
 				Command: &mesos.CommandInfo{
-					Value: proto.String(*dockerCmd),
+					// Not all containers have /bin/sh, so just don't allow it
+					Shell: proto.Bool(false),
 				},
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
@@ -161,6 +163,11 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 				},
 			}
 			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
+
+			// Allow arbitrary commands, else just use whatever the image defines in CMD
+			if *dockerCmd != "" {
+				task.Command.Value = proto.String(*dockerCmd)
+			}
 
 			tasks = append(tasks, task)
 			remainingCpus -= *dCpus
@@ -302,6 +309,13 @@ func main() {
 			return ctx
 		},
 	}
+
+	// Allow listening port to be configurable so we can run this inside of
+	// mesos if desired.
+	if *bindingPort != 0 {
+		config.BindingPort = uint16(*bindingPort)
+	}
+
 	driver, err := sched.NewMesosSchedulerDriver(config)
 
 	if err != nil {
