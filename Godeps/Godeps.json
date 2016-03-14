@@ -1,0 +1,110 @@
+{
+	"ImportPath": "github.com/yp-engineering/mesos-runonce",
+	"GoVersion": "go1.6",
+	"Deps": [
+		{
+			"ImportPath": "github.com/gogo/protobuf/proto",
+			"Rev": "cabd153b69f71bab8b89fd667a2d9bb28c92ceb4"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "fca8c8854093a154ff1eb580aae10276ad6b1b5f"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/auth",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/auth/callback",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/auth/sasl",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/auth/sasl/mech",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/auth/sasl/mech/crammd5",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/detector",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/detector/zoo",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/mesosproto",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/mesosproto/scheduler",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/mesosutil",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/mesosutil/process",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/messenger",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/scheduler",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/upid",
+			"Comment": "before-0.26-protos-14-g4a7554a",
+			"Rev": "4a7554aad396c70d19c9fc3469980547c9f117ae"
+		},
+		{
+			"ImportPath": "github.com/pborman/uuid",
+			"Rev": "ca53cad383cad2479bbba7f7a1a05797ec1386e4"
+		},
+		{
+			"ImportPath": "github.com/samuel/go-zookeeper/zk",
+			"Rev": "5bb5cfc093ad18a28148c578f8632cfdb4d802e4"
+		},
+		{
+			"ImportPath": "github.com/stretchr/objx",
+			"Rev": "cbeaeb16a013161a98496fad62933b1d21786672"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Comment": "v1.0-21-gf552045",
+			"Rev": "f5520455607c0233cb6d7b056f71b22c1d265ef1"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/mock",
+			"Comment": "v1.0-21-gf552045",
+			"Rev": "f5520455607c0233cb6d7b056f71b22c1d265ef1"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "b026840ad5cb594d38a2b783be1b6644fe5325fb"
+		}
+	]
+}
