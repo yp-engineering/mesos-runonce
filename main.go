@@ -42,7 +42,7 @@ import (
 var eventCh chan *mesos.TaskStatus
 
 var (
-	address      = flag.String("address", "127.0.0.1", "Binding address for artifact server")
+	address      = flag.String("address", "127.0.0.1", "Address for mesos to callback on.")
 	bindingPort  = flag.Uint("port", 0, "Port for address to use for mesos to callback.")
 	authProvider = flag.String("authentication-provider", sasl.ProviderName,
 		fmt.Sprintf("Authentication provider to use, default is SASL that supports mechanisms: %+v", mech.ListSupported()))
@@ -296,16 +296,17 @@ func main() {
 			cred.Secret = proto.String(string(secret))
 		}
 	}
-	bindingAddress := parseIP(*address)
+
+	publishedAddress := parseIP(*address)
 	config := sched.DriverConfig{
-		Scheduler:      newExampleScheduler(exec),
-		Framework:      fwinfo,
-		Master:         *master,
-		Credential:     cred,
-		BindingAddress: bindingAddress,
+		Scheduler:        newExampleScheduler(exec),
+		Framework:        fwinfo,
+		Master:           *master,
+		Credential:       cred,
+		PublishedAddress: publishedAddress,
 		WithAuthContext: func(ctx context.Context) context.Context {
 			ctx = auth.WithLoginProvider(ctx, *authProvider)
-			ctx = sasl.WithBindingAddress(ctx, bindingAddress)
+			ctx = sasl.WithBindingAddress(ctx, publishedAddress)
 			return ctx
 		},
 	}
