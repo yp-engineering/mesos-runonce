@@ -19,6 +19,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -53,6 +54,7 @@ var (
 	mesosRunasUser      = flag.String("user", "root", "Mesos user to run tasks as.")
 	dockerImage         = flag.String("docker-image", "", "Docker image to run.")
 	dockerCmd           = flag.String("docker-cmd", "", "Docker command to run.")
+	dockerEnvVars       = flag.String("env-vars", "", "Docker env vars for the container. E.g. -env-vars='{\"env\":{\"FOO\":\"bar\"}}'")
 	dCpus               = flag.Float64("cpus", 1.0, "How many CPUs to use.")
 	dMem                = flag.Float64("mem", 10, "How much memory to use.")
 )
@@ -62,6 +64,10 @@ type ExampleScheduler struct {
 	tasksLaunched int
 	tasksFinished int
 	totalTasks    int
+}
+
+type DockerEnvVars struct {
+	Env map[string]string `json:"env"`
 }
 
 func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
@@ -151,10 +157,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 					util.NewScalarResource("cpus", *dCpus),
 					util.NewScalarResource("mem", *dMem),
 				},
-				Command: &mesos.CommandInfo{
-					// Not all containers have /bin/sh, so just don't allow it
-					Shell: proto.Bool(false),
-				},
+				Command: &mesos.CommandInfo{},
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
 					Docker: &mesos.ContainerInfo_DockerInfo{
@@ -163,6 +166,10 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 				},
 			}
 			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
+
+			if *dockerEnvVars != "" {
+				task.Command.Environment = envVars()
+			}
 
 			// Allow arbitrary commands, else just use whatever the image defines in CMD
 			if *dockerCmd != "" {
@@ -263,6 +270,21 @@ func parseIP(address string) net.IP {
 		log.Fatalf("failed to parse IP from address '%v'", address)
 	}
 	return addr[0]
+}
+
+func envVars() *mesos.Environment {
+	var dEnvVars DockerEnvVars
+	err := json.Unmarshal([]byte(*dockerEnvVars), &dEnvVars)
+	if err != nil {
+		log.Fatalf("JSON error: %#v with unparsable env vars: %+v", err, *dockerEnvVars)
+	}
+
+	var variables []*mesos.Environment_Variable
+	for key, value := range dEnvVars.Env {
+		variables = append(variables, &mesos.Environment_Variable{Name: proto.String(key), Value: proto.String(value)})
+	}
+
+	return &mesos.Environment{Variables: variables}
 }
 
 // ----------------------- func main() ------------------------- //
