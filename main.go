@@ -150,7 +150,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 
 			containerType := mesos.ContainerInfo_DOCKER
 			task := &mesos.TaskInfo{
-				Name:    proto.String("go-task-" + taskId.GetValue()),
+				Name:    proto.String("mesos-runonce-" + taskId.GetValue()),
 				TaskId:  taskId,
 				SlaveId: offer.SlaveId,
 				Resources: []*mesos.Resource{
@@ -202,7 +202,7 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 		status.GetState() == mesos.TaskState_TASK_KILLED ||
 		status.GetState() == mesos.TaskState_TASK_FAILED ||
 		status.GetState() == mesos.TaskState_TASK_ERROR {
-		log.Infoln(
+		log.Fatalln(
 			"Aborting because task", status.TaskId.GetValue(),
 			"is in unexpected state", status.State.String(),
 			"with message", status.GetMessage(),
@@ -297,7 +297,7 @@ func main() {
 	// the framework
 	fwinfo := &mesos.FrameworkInfo{
 		User: proto.String(*mesosRunasUser),
-		Name: proto.String("Test Framework (Go)"),
+		Name: proto.String("mesos-runonce"),
 	}
 
 	cred := (*mesos.Credential)(nil)
