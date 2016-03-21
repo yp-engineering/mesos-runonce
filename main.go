@@ -157,7 +157,9 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 					util.NewScalarResource("cpus", *dCpus),
 					util.NewScalarResource("mem", *dMem),
 				},
-				Command: &mesos.CommandInfo{},
+				Command: &mesos.CommandInfo{
+					Shell: proto.Bool(false),
+				},
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
 					Docker: &mesos.ContainerInfo_DockerInfo{
@@ -174,6 +176,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 			// Allow arbitrary commands, else just use whatever the image defines in CMD
 			if *dockerCmd != "" {
 				task.Command.Value = proto.String(*dockerCmd)
+				task.Command.Shell = proto.Bool(true)
 			}
 
 			tasks = append(tasks, task)
@@ -253,8 +256,8 @@ func prepareExecutorInfo() *mesos.ExecutorInfo {
 	containerType := mesos.ContainerInfo_DOCKER
 	return &mesos.ExecutorInfo{
 		ExecutorId: util.NewExecutorID("default"),
-		Name:       proto.String("Test Executor (Go)"),
-		Source:     proto.String("go_test"),
+		Name:       proto.String("mesos-runonce-executor"),
+		Source:     proto.String("mesos-runonce-executor"),
 		Container: &mesos.ContainerInfo{
 			Type: &containerType,
 		},
