@@ -47,16 +47,17 @@ var (
 	bindingPort  = flag.Uint("port", 0, "Port for address to use for mesos to callback.")
 	authProvider = flag.String("authentication-provider", sasl.ProviderName,
 		fmt.Sprintf("Authentication provider to use, default is SASL that supports mechanisms: %+v", mech.ListSupported()))
-	master              = flag.String("master", "127.0.0.1:5050", "Master address <ip:port>")
-	taskCount           = flag.Int("task-count", 1, "Total task count to run.")
-	mesosAuthPrincipal  = flag.String("principal", "", "Mesos authentication principal.")
-	mesosAuthSecretFile = flag.String("secret-file", "", "Mesos authentication secret file.")
-	mesosRunasUser      = flag.String("user", "root", "Mesos user to run tasks as.")
-	dockerImage         = flag.String("docker-image", "", "Docker image to run.")
-	dockerCmd           = flag.String("docker-cmd", "", "Docker command to run.")
-	dockerEnvVars       = flag.String("env-vars", "", "Docker env vars for the container. E.g. -env-vars='{\"env\":{\"FOO\":\"bar\"}}'")
-	dCpus               = flag.Float64("cpus", 1.0, "How many CPUs to use.")
-	dMem                = flag.Float64("mem", 10, "How much memory to use.")
+	master               = flag.String("master", "127.0.0.1:5050", "Master address <ip:port>")
+	taskCount            = flag.Int("task-count", 1, "Total task count to run.")
+	mesosAuthPrincipal   = flag.String("principal", "", "Mesos authentication principal.")
+	mesosAuthSecretFile  = flag.String("secret-file", "", "Mesos authentication secret file.")
+	mesosRunasUser       = flag.String("user", "root", "Mesos user to run tasks as.")
+	dockerImage          = flag.String("docker-image", "", "Docker image to run.")
+	dockerCmd            = flag.String("docker-cmd", "", "Docker command to run.")
+	dockerForcePullImage = flag.Bool("force-pull", false, "Boolean for forcing pull of image before run.")
+	dockerEnvVars        = flag.String("env-vars", "", "Docker env vars for the container. E.g. -env-vars='{\"env\":{\"FOO\":\"bar\"}}'")
+	dCpus                = flag.Float64("cpus", 1.0, "How many CPUs to use.")
+	dMem                 = flag.Float64("mem", 10, "How much memory to use.")
 )
 
 type ExampleScheduler struct {
@@ -163,7 +164,8 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
 					Docker: &mesos.ContainerInfo_DockerInfo{
-						Image: proto.String(*dockerImage),
+						Image:          proto.String(*dockerImage),
+						ForcePullImage: proto.Bool(*dockerForcePullImage),
 					},
 				},
 			}
