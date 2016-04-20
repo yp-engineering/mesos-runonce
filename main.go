@@ -87,7 +87,7 @@ func (sched *ExampleScheduler) Reregistered(driver sched.SchedulerDriver, master
 	log.Infoln("Framework Re-Registered with Master ", masterInfo)
 }
 func (sched *ExampleScheduler) Disconnected(sched.SchedulerDriver) {
-	log.Fatalf("disconnected from master, aborting")
+	log.Exitf("disconnected from master, aborting")
 }
 func (sched *ExampleScheduler) OfferRescinded(_ sched.SchedulerDriver, oid *mesos.OfferID) {
 	log.Errorf("offer rescinded: %v", oid)
@@ -102,7 +102,7 @@ func (sched *ExampleScheduler) ExecutorLost(_ sched.SchedulerDriver, eid *mesos.
 	log.Errorf("executor %q lost on slave %q code %d", eid, sid, code)
 }
 func (sched *ExampleScheduler) Error(_ sched.SchedulerDriver, err string) {
-	log.Errorf("Scheduler received error: %v", err)
+	log.Exitf("Scheduler received error: %v", err)
 }
 
 func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
@@ -207,12 +207,13 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 		status.GetState() == mesos.TaskState_TASK_KILLED ||
 		status.GetState() == mesos.TaskState_TASK_FAILED ||
 		status.GetState() == mesos.TaskState_TASK_ERROR {
-		log.Fatalln(
+		log.Warningf("mesos TaskStatus: %v", status)
+		driver.Abort()
+		log.Exitln(
 			"Aborting because task", status.TaskId.GetValue(),
 			"is in unexpected state", status.State.String(),
-			"with message", status.GetMessage(),
+			"with message.", status.GetMessage(),
 		)
-		driver.Abort()
 	}
 }
 
@@ -269,10 +270,10 @@ func prepareExecutorInfo() *mesos.ExecutorInfo {
 func parseIP(address string) net.IP {
 	addr, err := net.LookupIP(address)
 	if err != nil {
-		log.Fatal(err)
+		log.Exit(err)
 	}
 	if len(addr) < 1 {
-		log.Fatalf("failed to parse IP from address '%v'", address)
+		log.Exitf("failed to parse IP from address '%v'", address)
 	}
 	return addr[0]
 }
@@ -281,7 +282,7 @@ func envVars() *mesos.Environment {
 	var dEnvVars DockerEnvVars
 	err := json.Unmarshal([]byte(*dockerEnvVars), &dEnvVars)
 	if err != nil {
-		log.Fatalf("JSON error: %#v with unparsable env vars: %+v", err, *dockerEnvVars)
+		log.Exitf("JSON error: %#v with unparsable env vars: %+v", err, *dockerEnvVars)
 	}
 
 	var variables []*mesos.Environment_Variable
@@ -314,11 +315,11 @@ func main() {
 		if *mesosAuthSecretFile != "" {
 			_, err := os.Stat(*mesosAuthSecretFile)
 			if err != nil {
-				log.Fatal("missing secret file: ", err.Error())
+				log.Exit("missing secret file: ", err.Error())
 			}
 			secret, err := ioutil.ReadFile(*mesosAuthSecretFile)
 			if err != nil {
-				log.Fatal("failed to read secret file: ", err.Error())
+				log.Exit("failed to read secret file: ", err.Error())
 			}
 			cred.Secret = proto.String(string(secret))
 		}
