@@ -78,7 +78,7 @@ type LogData struct {
 	Offset int    `json:"offset"`
 }
 
-func FetchLogs(status *mesos.TaskStatus, offset int) ([]byte, error) {
+func FetchLogs(status *mesos.TaskStatus, offset int, file string) ([]byte, error) {
 	var mtsd MesosTaskStatusData
 	err := json.Unmarshal(status.Data, &mtsd)
 	if err != nil {
@@ -96,8 +96,8 @@ func FetchLogs(status *mesos.TaskStatus, offset int) ([]byte, error) {
 			dir = source
 		}
 	}
-	url := fmt.Sprintf("http://%s.%s:5051/files/read.json?path=%s/stdout&offset=%d&length=32000",
-		firstMtsd.Config.Hostname, firstMtsd.Config.Domainname, dir, offset)
+	url := fmt.Sprintf("http://%s.%s:5051/files/read.json?path=%s/%s&offset=%d&length=32000",
+		firstMtsd.Config.Hostname, firstMtsd.Config.Domainname, dir, file, offset)
 	bodyData, _ := FetchLog(url)
 
 	var logData LogData

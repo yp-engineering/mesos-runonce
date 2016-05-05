@@ -26,6 +26,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -229,10 +230,14 @@ func fetchLogs() {
 	finished := false
 	offset := 0
 	var startedStatus *mesos.TaskStatus
+	var wg sync.WaitGroup
 	for {
 		select {
 		case status := <-eventCh:
-			if status.GetState() == mesos.TaskState_TASK_RUNNING {
+			if status.GetState() == mesos.TaskState_TASK_RUNNING ||
+				status.GetState() == mesos.TaskState_TASK_STARTING ||
+				status.GetState() == mesos.TaskState_TASK_FAILED ||
+				status.GetState() == mesos.TaskState_TASK_KILLED {
 				startedStatus = status
 			}
 			if status.GetState() == mesos.TaskState_TASK_FINISHED {
@@ -240,19 +245,34 @@ func fetchLogs() {
 			}
 		case <-timer:
 			if startedStatus != nil {
-				data, err := mlog.FetchLogs(startedStatus, offset)
-				if err != nil {
-					log.Infof("fetch logs err: %s\n", err)
-				} else {
-					fmt.Print(string(data))
-					if len(data) == 0 && finished {
-						return
-					}
-					offset += len(data)
+				files := []string{
+					"stdout",
+					"stderr",
+				}
+				for _, file := range files {
+					wg.Add(1)
+					go func(file string) {
+						defer wg.Done()
+						data, err := mlog.FetchLogs(startedStatus, offset, file)
+						if err != nil {
+							log.Infof("fetch logs err: %s\n", err)
+						} else if len(data) > 0 {
+							switch file {
+							case "stdout":
+								fmt.Print(string(data))
+							case "stderr":
+								fmt.Fprintln(os.Stderr, (string(data)))
+							}
+							offset += len(data)
+						} else if len(data) == 0 && finished {
+							return
+						}
+					}(file)
 				}
 			}
 		}
 	}
+	wg.Wait()
 }
 func prepareExecutorInfo() *mesos.ExecutorInfo {
 	// Create mesos scheduler driver.
@@ -353,6 +373,7 @@ func main() {
 
 	eventCh = make(chan *mesos.TaskStatus)
 	go fetchLogs()
+
 	if stat, err := driver.Run(); err != nil {
 		log.Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
 	}
