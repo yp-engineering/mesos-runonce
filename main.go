@@ -247,28 +247,32 @@ func printLogs() {
 			}
 		case <-timer:
 			if startStatus != nil {
-				printLog(startStatus, &oout, os.Stdout)
-				printLog(startStatus, &oerr, os.Stderr)
-				if finished {
+				x := printLog(startStatus, oout, os.Stdout)
+				y := printLog(startStatus, oerr, os.Stderr)
+				if finished && x == 0 && y == 0 {
 					return
 				}
+				oout += x
+				oerr += y
 			}
 		}
 	}
 }
 
-func printLog(status *mesos.TaskStatus, offset *int, w io.Writer) {
+func printLog(status *mesos.TaskStatus, offset int, w io.Writer) int {
 	file := "stdout"
 	if w == os.Stderr {
 		file = "stderr"
 	}
-	data, err := mlog.FetchLogs(status, *offset, file)
+	data, err := mlog.FetchLogs(status, offset, file)
 	if err != nil {
 		log.V(1).Infof("fetch logs err: %s\n", err)
-	} else if len(data) > 0 {
-		fmt.Fprint(w, string(data)+"\n")
-		*offset += len(data)
+		return 0
 	}
+	if len(data) > 0 {
+		fmt.Fprint(w, string(data))
+	}
+	return len(data)
 }
 
 func prepareExecutorInfo() *mesos.ExecutorInfo {
