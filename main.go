@@ -22,11 +22,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -41,7 +41,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-var eventCh chan *mesos.TaskStatus
+var eventCh = make(chan *mesos.TaskStatus)
 
 var (
 	address      = flag.String("address", "127.0.0.1", "Address for mesos to callback on.")
@@ -225,55 +225,52 @@ func init() {
 	log.Infoln("Initializing the Example Scheduler...")
 }
 
-func fetchLogs() {
+func printLogs() {
 	timer := time.Tick(500 * time.Millisecond)
-	finished := false
-	offset := 0
-	var startedStatus *mesos.TaskStatus
-	var wg sync.WaitGroup
+	var (
+		startStatus *mesos.TaskStatus
+		finished    bool
+		oout, oerr  int
+	)
 	for {
 		select {
 		case status := <-eventCh:
-			if status.GetState() == mesos.TaskState_TASK_RUNNING ||
-				status.GetState() == mesos.TaskState_TASK_STARTING ||
-				status.GetState() == mesos.TaskState_TASK_FAILED ||
-				status.GetState() == mesos.TaskState_TASK_KILLED {
-				startedStatus = status
-			}
-			if status.GetState() == mesos.TaskState_TASK_FINISHED {
+			switch status.GetState() {
+			case mesos.TaskState_TASK_RUNNING,
+				mesos.TaskState_TASK_STARTING,
+				mesos.TaskState_TASK_FAILED,
+				mesos.TaskState_TASK_KILLED:
+
+				startStatus = status
+			case mesos.TaskState_TASK_FINISHED:
 				finished = true
 			}
 		case <-timer:
-			if startedStatus != nil {
-				files := []string{
-					"stdout",
-					"stderr",
-				}
-				for _, file := range files {
-					wg.Add(1)
-					go func(file string) {
-						defer wg.Done()
-						data, err := mlog.FetchLogs(startedStatus, offset, file)
-						if err != nil {
-							log.Infof("fetch logs err: %s\n", err)
-						} else if len(data) > 0 {
-							switch file {
-							case "stdout":
-								fmt.Print(string(data))
-							case "stderr":
-								fmt.Fprintln(os.Stderr, (string(data)))
-							}
-							offset += len(data)
-						} else if len(data) == 0 && finished {
-							return
-						}
-					}(file)
+			if startStatus != nil {
+				printLog(startStatus, &oout, os.Stdout)
+				printLog(startStatus, &oerr, os.Stderr)
+				if finished {
+					return
 				}
 			}
 		}
 	}
-	wg.Wait()
 }
+
+func printLog(status *mesos.TaskStatus, offset *int, w io.Writer) {
+	file := "stdout"
+	if w == os.Stderr {
+		file = "stderr"
+	}
+	data, err := mlog.FetchLogs(status, *offset, file)
+	if err != nil {
+		log.Infof("fetch logs err: %s\n", err)
+	} else if len(data) > 0 {
+		fmt.Fprint(w, string(data)+"\n")
+		*offset += len(data)
+	}
+}
+
 func prepareExecutorInfo() *mesos.ExecutorInfo {
 	// Create mesos scheduler driver.
 	containerType := mesos.ContainerInfo_DOCKER
@@ -371,8 +368,7 @@ func main() {
 		log.Errorln("Unable to create a SchedulerDriver ", err.Error())
 	}
 
-	eventCh = make(chan *mesos.TaskStatus)
-	go fetchLogs()
+	go printLogs()
 
 	if stat, err := driver.Run(); err != nil {
 		log.Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
