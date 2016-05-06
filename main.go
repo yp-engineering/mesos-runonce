@@ -85,6 +85,7 @@ func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
 
 func (sched *ExampleScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.Infoln("Framework Registered with Master ", masterInfo)
+	fmt.Println("Registered with master and given framework ID:", frameworkId.GetValue())
 }
 func (sched *ExampleScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
 	log.Infoln("Framework Re-Registered with Master ", masterInfo)
