@@ -50,6 +50,8 @@ var (
 		fmt.Sprintf("Authentication provider to use, default is SASL that supports mechanisms: %+v", mech.ListSupported()))
 	master               = flag.String("master", "127.0.0.1:5050", "Master address <ip:port>")
 	taskCount            = flag.Int("task-count", 1, "Total task count to run.")
+	mesosTaskID          = flag.String("task-id", "", "Mesos task id to identify the task.")
+	mesosTaskName        = flag.String("task-name", "", "Mesos task name to label the task.")
 	mesosAuthPrincipal   = flag.String("principal", "", "Mesos authentication principal.")
 	mesosAuthSecretFile  = flag.String("secret-file", "", "Mesos authentication secret file.")
 	mesosRunasUser       = flag.String("user", "root", "Mesos user to run tasks as.")
@@ -146,13 +148,23 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 
 			sched.tasksLaunched++
 
+			tID := strconv.Itoa(sched.tasksLaunched)
+			if *mesosTaskID != "" {
+				tID = *mesosTaskID
+			}
+
+			tName := "mesos-runonce-" + tID
+			if *mesosTaskName != "" {
+				tName = *mesosTaskName
+			}
+
 			taskId := &mesos.TaskID{
-				Value: proto.String(strconv.Itoa(sched.tasksLaunched)),
+				Value: proto.String(tID),
 			}
 
 			containerType := mesos.ContainerInfo_DOCKER
 			task := &mesos.TaskInfo{
-				Name:    proto.String("mesos-runonce-" + taskId.GetValue()),
+				Name:    proto.String(tName),
 				TaskId:  taskId,
 				SlaveId: offer.SlaveId,
 				Resources: []*mesos.Resource{
