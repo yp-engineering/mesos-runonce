@@ -82,10 +82,10 @@ func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
 }
 
 func (sched *ExampleScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
-	log.Infoln("Framework Registered with Master ", masterInfo)
+	log.V(1).Infoln("Framework Registered with Master ", masterInfo)
 }
 func (sched *ExampleScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
-	log.Infoln("Framework Re-Registered with Master ", masterInfo)
+	log.V(1).Infoln("Framework Re-Registered with Master ", masterInfo)
 }
 func (sched *ExampleScheduler) Disconnected(sched.SchedulerDriver) {
 	log.Exitf("disconnected from master, aborting")
@@ -109,7 +109,7 @@ func (sched *ExampleScheduler) Error(_ sched.SchedulerDriver, err string) {
 func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
 
 	if sched.tasksLaunched >= sched.totalTasks {
-		log.Info("decline all of the offers since all of our tasks are already launched")
+		log.V(1).Info("decline all of the offers since all of our tasks are already launched")
 		ids := make([]*mesos.OfferID, len(offers))
 		for i, offer := range offers {
 			ids[i] = offer.Id
@@ -134,7 +134,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 			mems += res.GetScalar().GetValue()
 		}
 
-		log.Infoln("Received Offer <", offer.Id.GetValue(), "> on host ", *offer.Hostname, "with cpus=", cpus, " mem=", mems)
+		log.V(1).Infoln("Received Offer <", offer.Id.GetValue(), "> on host ", *offer.Hostname, "with cpus=", cpus, " mem=", mems)
 
 		remainingCpus := cpus
 		remainingMems := mems
@@ -170,7 +170,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 					},
 				},
 			}
-			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
+			log.V(1).Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
 
 			if *dockerEnvVars != "" {
 				task.Command.Environment = envVars()
@@ -186,13 +186,13 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 			remainingCpus -= *dCpus
 			remainingMems -= *dMem
 		}
-		log.Infoln("Launching ", len(tasks), "tasks for offer", offer.Id.GetValue())
+		log.V(1).Infoln("Launching ", len(tasks), "tasks for offer", offer.Id.GetValue())
 		driver.LaunchTasks([]*mesos.OfferID{offer.Id}, tasks, &mesos.Filters{RefuseSeconds: proto.Float64(5)})
 	}
 }
 
 func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
-	log.Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
+	log.V(1).Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
 	eventCh <- status
 
 	if status.GetState() == mesos.TaskState_TASK_FINISHED {
@@ -200,7 +200,7 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 	}
 
 	if sched.tasksFinished >= sched.totalTasks {
-		log.Infoln("Total tasks completed, stopping framework.")
+		log.V(1).Infoln("Total tasks completed, stopping framework.")
 		driver.Stop(false)
 	}
 
@@ -222,7 +222,7 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 
 func init() {
 	flag.Parse()
-	log.Infoln("Initializing the Example Scheduler...")
+	log.V(1).Infoln("Initializing the Example Scheduler...")
 }
 
 func printLogs() {
@@ -264,7 +264,7 @@ func printLog(status *mesos.TaskStatus, offset *int, w io.Writer) {
 	}
 	data, err := mlog.FetchLogs(status, *offset, file)
 	if err != nil {
-		log.Infof("fetch logs err: %s\n", err)
+		log.V(1).Infof("fetch logs err: %s\n", err)
 	} else if len(data) > 0 {
 		fmt.Fprint(w, string(data)+"\n")
 		*offset += len(data)
@@ -370,10 +370,10 @@ func main() {
 
 	go func() {
 		if stat, err := driver.Run(); err != nil {
-			log.Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
+			log.V(1).Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
 		}
 	}()
 
 	printLogs()
-	log.Infof("framework terminating")
+	log.V(1).Infof("framework terminating")
 }
