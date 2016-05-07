@@ -22,11 +22,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -41,7 +41,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-var eventCh chan *mesos.TaskStatus
+var eventCh = make(chan *mesos.TaskStatus)
 
 var (
 	address      = flag.String("address", "127.0.0.1", "Address for mesos to callback on.")
@@ -84,11 +84,11 @@ func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
 }
 
 func (sched *ExampleScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
-	log.Infoln("Framework Registered with Master ", masterInfo)
-	fmt.Println("Registered with master and given framework ID:", frameworkId.GetValue())
+	log.V(1).Infoln("Framework Registered with Master ", masterInfo)
+	log.V(0).Println("Registered with master and given framework ID:", frameworkId.GetValue())
 }
 func (sched *ExampleScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
-	log.Infoln("Framework Re-Registered with Master ", masterInfo)
+	log.V(1).Infoln("Framework Re-Registered with Master ", masterInfo)
 }
 func (sched *ExampleScheduler) Disconnected(sched.SchedulerDriver) {
 	log.Exitf("disconnected from master, aborting")
@@ -112,7 +112,7 @@ func (sched *ExampleScheduler) Error(_ sched.SchedulerDriver, err string) {
 func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
 
 	if sched.tasksLaunched >= sched.totalTasks {
-		log.Info("decline all of the offers since all of our tasks are already launched")
+		log.V(1).Info("decline all of the offers since all of our tasks are already launched")
 		ids := make([]*mesos.OfferID, len(offers))
 		for i, offer := range offers {
 			ids[i] = offer.Id
@@ -137,7 +137,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 			mems += res.GetScalar().GetValue()
 		}
 
-		log.Infoln("Received Offer <", offer.Id.GetValue(), "> on host ", *offer.Hostname, "with cpus=", cpus, " mem=", mems)
+		log.V(1).Infoln("Received Offer <", offer.Id.GetValue(), "> on host ", *offer.Hostname, "with cpus=", cpus, " mem=", mems)
 
 		remainingCpus := cpus
 		remainingMems := mems
@@ -183,7 +183,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 					},
 				},
 			}
-			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
+			log.V(1).Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
 
 			if *dockerEnvVars != "" {
 				task.Command.Environment = envVars()
@@ -199,13 +199,13 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 			remainingCpus -= *dCpus
 			remainingMems -= *dMem
 		}
-		log.Infoln("Launching ", len(tasks), "tasks for offer", offer.Id.GetValue())
+		log.V(1).Infoln("Launching ", len(tasks), "tasks for offer", offer.Id.GetValue())
 		driver.LaunchTasks([]*mesos.OfferID{offer.Id}, tasks, &mesos.Filters{RefuseSeconds: proto.Float64(5)})
 	}
 }
 
 func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
-	log.Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
+	log.V(1).Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
 	eventCh <- status
 
 	if status.GetState() == mesos.TaskState_TASK_FINISHED {
@@ -213,7 +213,7 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 	}
 
 	if sched.tasksFinished >= sched.totalTasks {
-		log.Infoln("Total tasks completed, stopping framework.")
+		log.V(1).Infoln("Total tasks completed, stopping framework.")
 		driver.Stop(false)
 	}
 
@@ -235,58 +235,59 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 
 func init() {
 	flag.Parse()
-	log.Infoln("Initializing the Example Scheduler...")
+	log.V(1).Infoln("Initializing the Example Scheduler...")
 }
 
-func fetchLogs() {
+func printLogs() {
 	timer := time.Tick(500 * time.Millisecond)
-	finished := false
-	offset := 0
-	var startedStatus *mesos.TaskStatus
-	var wg sync.WaitGroup
+	var (
+		startStatus *mesos.TaskStatus
+		finished    bool
+		oout, oerr  int
+	)
 	for {
 		select {
 		case status := <-eventCh:
-			if status.GetState() == mesos.TaskState_TASK_RUNNING ||
-				status.GetState() == mesos.TaskState_TASK_STARTING ||
-				status.GetState() == mesos.TaskState_TASK_FAILED ||
-				status.GetState() == mesos.TaskState_TASK_KILLED {
-				startedStatus = status
-			}
-			if status.GetState() == mesos.TaskState_TASK_FINISHED {
+			switch status.GetState() {
+			case mesos.TaskState_TASK_RUNNING,
+				mesos.TaskState_TASK_STARTING,
+				mesos.TaskState_TASK_FAILED,
+				mesos.TaskState_TASK_KILLED:
+
+				startStatus = status
+			case mesos.TaskState_TASK_FINISHED:
 				finished = true
 			}
 		case <-timer:
-			if startedStatus != nil {
-				files := []string{
-					"stdout",
-					"stderr",
+			if startStatus != nil {
+				x := printLog(startStatus, oout, os.Stdout)
+				y := printLog(startStatus, oerr, os.Stderr)
+				if finished && x == 0 && y == 0 {
+					return
 				}
-				for _, file := range files {
-					wg.Add(1)
-					go func(file string) {
-						defer wg.Done()
-						data, err := mlog.FetchLogs(startedStatus, offset, file)
-						if err != nil {
-							log.Infof("fetch logs err: %s\n", err)
-						} else if len(data) > 0 {
-							switch file {
-							case "stdout":
-								fmt.Print(string(data))
-							case "stderr":
-								fmt.Fprintln(os.Stderr, (string(data)))
-							}
-							offset += len(data)
-						} else if len(data) == 0 && finished {
-							return
-						}
-					}(file)
-				}
+				oout += x
+				oerr += y
 			}
 		}
 	}
-	wg.Wait()
 }
+
+func printLog(status *mesos.TaskStatus, offset int, w io.Writer) int {
+	file := "stdout"
+	if w == os.Stderr {
+		file = "stderr"
+	}
+	data, err := mlog.FetchLogs(status, offset, file)
+	if err != nil {
+		log.V(1).Infof("fetch logs err: %s\n", err)
+		return 0
+	}
+	if len(data) > 0 {
+		fmt.Fprint(w, string(data))
+	}
+	return len(data)
+}
+
 func prepareExecutorInfo() *mesos.ExecutorInfo {
 	// Create mesos scheduler driver.
 	containerType := mesos.ContainerInfo_DOCKER
@@ -384,11 +385,12 @@ func main() {
 		log.Errorln("Unable to create a SchedulerDriver ", err.Error())
 	}
 
-	eventCh = make(chan *mesos.TaskStatus)
-	go fetchLogs()
+	go func() {
+		if stat, err := driver.Run(); err != nil {
+			log.V(1).Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
+		}
+	}()
 
-	if stat, err := driver.Run(); err != nil {
-		log.Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
-	}
-	log.Infof("framework terminating")
+	printLogs()
+	log.V(1).Infof("framework terminating")
 }

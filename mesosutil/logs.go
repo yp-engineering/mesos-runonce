@@ -86,17 +86,17 @@ func FetchLogs(status *mesos.TaskStatus, offset int, file string) ([]byte, error
 	}
 	// status.Data is an array of one value :( Maybe there is a better way to marshal it?
 	firstMtsd := mtsd[0]
-	log.Infof("firstMtsd: %#v", firstMtsd)
+	log.V(2).Infof("firstMtsd: %#v", firstMtsd)
 	var dir string
 	for _, mount := range firstMtsd.Mounts {
 		source := mount.Source
-		log.Infoln("mount: ", source)
+		log.V(2).Infoln("mount: ", source)
 		matched, _ := regexp.MatchString("slaves.*frameworks.*executors", source)
 		if matched {
 			dir = source
 		}
 	}
-	url := fmt.Sprintf("http://%s.%s:5051/files/read.json?path=%s/%s&offset=%d&length=32000",
+	url := fmt.Sprintf("http://%s.%s:5051/files/read.json?path=%s/%s&offset=%d",
 		firstMtsd.Config.Hostname, firstMtsd.Config.Domainname, dir, file, offset)
 	bodyData, _ := FetchLog(url)
 

@@ -46,7 +46,7 @@ func (t *Transport) RoundTrip(r *http.Request) (resp *http.Response, err error) 
 				return
 			}
 			// Time GET / HTTP1/1 200 (2ms)
-			log.Infof("%s %v %s %d (%v)\n",
+			log.V(1).Infof("%s %v %s %d (%v)\n",
 				r.Method, r.URL, r.Proto, resp.StatusCode, time.Since(now))
 		}
 	}()
