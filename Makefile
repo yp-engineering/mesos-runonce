@@ -1,4 +1,4 @@
-DEPS := $(shell git ls '*.go' | grep -v '^vendor')
+DEPS := $(shell git ls-files '*.go' | grep -v '^vendor')
 
 .phony: build
 
