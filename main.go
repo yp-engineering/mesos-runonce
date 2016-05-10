@@ -223,7 +223,7 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 		status.GetState() == mesos.TaskState_TASK_ERROR {
 		log.Warningf("mesos TaskStatus: %v", status)
 		driver.Abort()
-		log.Infoln(
+		log.Errorln(
 			"Aborting because task", status.TaskId.GetValue(),
 			"is in unexpected state", status.State.String(),
 			"with message.", status.GetMessage(),
@@ -241,9 +241,9 @@ func init() {
 func printLogs() {
 	timer := time.Tick(500 * time.Millisecond)
 	var (
-		startStatus *mesos.TaskStatus
-		finished    bool
-		oout, oerr  int
+		readableStatus *mesos.TaskStatus
+		finished       bool
+		oout, oerr     int
 	)
 	for {
 		select {
@@ -251,21 +251,21 @@ func printLogs() {
 			switch status.GetState() {
 			case mesos.TaskState_TASK_RUNNING,
 				mesos.TaskState_TASK_STARTING:
-				startStatus = status
+				readableStatus = status
 			case mesos.TaskState_TASK_FAILED,
 				mesos.TaskState_TASK_KILLED:
-				startStatus = status
+				readableStatus = status
 				finished = true
 			case mesos.TaskState_TASK_FINISHED:
 				finished = true
 			}
 		case <-timer:
-			if startStatus != nil {
+			if readableStatus != nil {
 				if finished {
 					time.Sleep(1 * time.Second)
 				}
-				x := printLog(startStatus, oout, os.Stdout)
-				y := printLog(startStatus, oerr, os.Stderr)
+				x := printLog(readableStatus, oout, os.Stdout)
+				y := printLog(readableStatus, oerr, os.Stderr)
 				if finished && x == 0 && y == 0 {
 					return
 				}
