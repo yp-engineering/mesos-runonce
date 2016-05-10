@@ -85,7 +85,7 @@ func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
 
 func (sched *ExampleScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.V(1).Infoln("Framework Registered with Master ", masterInfo)
-	log.V(0).Println("Registered with master and given framework ID:", frameworkId.GetValue())
+	fmt.Println("Registered with master and given framework ID:", frameworkId.GetValue())
 }
 func (sched *ExampleScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
 	log.V(1).Infoln("Framework Re-Registered with Master ", masterInfo)
@@ -223,7 +223,7 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 		status.GetState() == mesos.TaskState_TASK_ERROR {
 		log.Warningf("mesos TaskStatus: %v", status)
 		driver.Abort()
-		log.Exitln(
+		log.Infoln(
 			"Aborting because task", status.TaskId.GetValue(),
 			"is in unexpected state", status.State.String(),
 			"with message.", status.GetMessage(),
@@ -250,16 +250,20 @@ func printLogs() {
 		case status := <-eventCh:
 			switch status.GetState() {
 			case mesos.TaskState_TASK_RUNNING,
-				mesos.TaskState_TASK_STARTING,
-				mesos.TaskState_TASK_FAILED,
-				mesos.TaskState_TASK_KILLED:
-
+				mesos.TaskState_TASK_STARTING:
 				startStatus = status
+			case mesos.TaskState_TASK_FAILED,
+				mesos.TaskState_TASK_KILLED:
+				startStatus = status
+				finished = true
 			case mesos.TaskState_TASK_FINISHED:
 				finished = true
 			}
 		case <-timer:
 			if startStatus != nil {
+				if finished {
+					time.Sleep(1 * time.Second)
+				}
 				x := printLog(startStatus, oout, os.Stdout)
 				y := printLog(startStatus, oerr, os.Stderr)
 				if finished && x == 0 && y == 0 {

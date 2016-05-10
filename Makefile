@@ -9,3 +9,9 @@ mesos-runonce: $(DEPS)
 
 run: build
 	bash ./run.sh
+
+test: minimesos
+	$$HOME/.minimesos/bin/minimesos --help
+
+minimesos:
+	[ -e $$HOME/.minimesos/bin/minimesos ] || curl -sSL https://minimesos.org/install | sh
