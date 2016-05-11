@@ -43,6 +43,7 @@ import (
 
 var eventCh = make(chan *mesos.TaskStatus)
 var _frameworkId string
+var exitStatus = 0
 
 var (
 	address      = flag.String("address", "127.0.0.1", "Address for mesos to callback on.")
@@ -223,6 +224,7 @@ func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status
 		status.GetState() == mesos.TaskState_TASK_KILLED ||
 		status.GetState() == mesos.TaskState_TASK_FAILED ||
 		status.GetState() == mesos.TaskState_TASK_ERROR {
+		exitStatus = 1
 		log.Warningf("mesos TaskStatus: %v", status)
 		driver.Abort()
 		log.Errorln(
@@ -399,4 +401,5 @@ func main() {
 
 	printLogs()
 	log.V(1).Infof("framework terminating")
+	os.Exit(exitStatus)
 }
