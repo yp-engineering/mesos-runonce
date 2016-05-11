@@ -42,6 +42,7 @@ import (
 )
 
 var eventCh = make(chan *mesos.TaskStatus)
+var _frameworkId string
 
 var (
 	address      = flag.String("address", "127.0.0.1", "Address for mesos to callback on.")
@@ -85,7 +86,8 @@ func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
 
 func (sched *ExampleScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.V(1).Infoln("Framework Registered with Master ", masterInfo)
-	fmt.Println("Registered with master and given framework ID:", frameworkId.GetValue())
+	_frameworkId = frameworkId.GetValue()
+	fmt.Println("Registered with master and given framework ID:", _frameworkId)
 }
 func (sched *ExampleScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
 	log.V(1).Infoln("Framework Re-Registered with Master ", masterInfo)
@@ -281,7 +283,7 @@ func printLog(status *mesos.TaskStatus, offset int, w io.Writer) int {
 	if w == os.Stderr {
 		file = "stderr"
 	}
-	data, err := mlog.FetchLogs(status, offset, file)
+	data, err := mlog.FetchLogs(status, offset, file, _frameworkId)
 	if err != nil {
 		log.V(1).Infof("fetch logs err: %s\n", err)
 		return 0
