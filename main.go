@@ -264,7 +264,7 @@ func printLogs() {
 		case <-timer:
 			if readableStatus != nil {
 				if finished {
-					time.Sleep(1 * time.Second)
+					time.Sleep(3 * time.Second)
 				}
 				x := printLog(readableStatus, oout, os.Stdout)
 				y := printLog(readableStatus, oerr, os.Stderr)
