@@ -34,13 +34,14 @@ func (p ProxyError) Error() string {
 
 type MesosState struct {
 	CompletedFrameworks []Framework `json:"completed_frameworks"`
+	Frameworks          []Framework
 }
 
 func (m MesosState) Directory(frameworkId string) string {
-	for _, f := range m.CompletedFrameworks {
+	for _, f := range append(m.CompletedFrameworks, m.Frameworks...) {
 		// should we check for the framework?
-		for _, e := range f.CompletedExecutors {
-			for _, t := range e.CompletedTasks {
+		for _, e := range append(f.CompletedExecutors, f.Executors...) {
+			for _, t := range append(e.CompletedTasks, e.Tasks...) {
 				if t.FrameworkId == frameworkId {
 					log.V(2).Infoln("Matching task id " + frameworkId)
 					return e.Directory
@@ -58,10 +59,12 @@ type Tasks struct {
 type Framework struct {
 	Name               string
 	CompletedExecutors []Executor `json:"completed_executors"`
+	Executors          []Executor
 }
 
 type Executor struct {
 	CompletedTasks []Tasks `json:"completed_tasks"`
+	Tasks          []Tasks
 	Source         string
 	Directory      string
 }
