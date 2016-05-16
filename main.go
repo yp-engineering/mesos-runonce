@@ -383,6 +383,9 @@ func main() {
 
 	// Allow listening port to be configurable so we can run this inside of
 	// mesos if desired.
+	// NOTE only affects main PID, meaning the authentication step uses
+	// another PID which picks a random (32K range) port :(. Opened
+	// https://github.com/mesos/mesos-go/issues/229 to discuss.
 	if *bindingPort != 0 {
 		config.BindingPort = uint16(*bindingPort)
 	}
