@@ -65,7 +65,7 @@ var (
 	dMem                 = flag.Float64("mem", 10, "How much memory to use.")
 )
 
-type ExampleScheduler struct {
+type MesosRunonceScheduler struct {
 	executor      *mesos.ExecutorInfo
 	tasksLaunched int
 	tasksFinished int
@@ -76,8 +76,8 @@ type DockerEnvVars struct {
 	Env map[string]string `json:"env"`
 }
 
-func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
-	return &ExampleScheduler{
+func newMesosRunonceScheduler(exec *mesos.ExecutorInfo) *MesosRunonceScheduler {
+	return &MesosRunonceScheduler{
 		executor:      exec,
 		tasksLaunched: 0,
 		tasksFinished: 0,
@@ -85,34 +85,34 @@ func newExampleScheduler(exec *mesos.ExecutorInfo) *ExampleScheduler {
 	}
 }
 
-func (sched *ExampleScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
+func (sched *MesosRunonceScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.V(1).Infoln("Framework Registered with Master ", masterInfo)
 	_frameworkId = frameworkId.GetValue()
 	fmt.Println("Registered with master and given framework ID:", _frameworkId)
 }
-func (sched *ExampleScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
+func (sched *MesosRunonceScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
 	log.V(1).Infoln("Framework Re-Registered with Master ", masterInfo)
 }
-func (sched *ExampleScheduler) Disconnected(sched.SchedulerDriver) {
+func (sched *MesosRunonceScheduler) Disconnected(sched.SchedulerDriver) {
 	log.Exitf("disconnected from master, aborting")
 }
-func (sched *ExampleScheduler) OfferRescinded(_ sched.SchedulerDriver, oid *mesos.OfferID) {
+func (sched *MesosRunonceScheduler) OfferRescinded(_ sched.SchedulerDriver, oid *mesos.OfferID) {
 	log.Errorf("offer rescinded: %v", oid)
 }
-func (sched *ExampleScheduler) FrameworkMessage(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, msg string) {
+func (sched *MesosRunonceScheduler) FrameworkMessage(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, msg string) {
 	log.Errorf("framework message from executor %q slave %q: %q", eid, sid, msg)
 }
-func (sched *ExampleScheduler) SlaveLost(_ sched.SchedulerDriver, sid *mesos.SlaveID) {
+func (sched *MesosRunonceScheduler) SlaveLost(_ sched.SchedulerDriver, sid *mesos.SlaveID) {
 	log.Errorf("slave lost: %v", sid)
 }
-func (sched *ExampleScheduler) ExecutorLost(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, code int) {
+func (sched *MesosRunonceScheduler) ExecutorLost(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, code int) {
 	log.Errorf("executor %q lost on slave %q code %d", eid, sid, code)
 }
-func (sched *ExampleScheduler) Error(_ sched.SchedulerDriver, err string) {
+func (sched *MesosRunonceScheduler) Error(_ sched.SchedulerDriver, err string) {
 	log.Exitf("Scheduler received error: %v", err)
 }
 
-func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
+func (sched *MesosRunonceScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
 
 	if sched.tasksLaunched >= sched.totalTasks {
 		log.V(1).Info("decline all of the offers since all of our tasks are already launched")
@@ -207,7 +207,7 @@ func (sched *ExampleScheduler) ResourceOffers(driver sched.SchedulerDriver, offe
 	}
 }
 
-func (sched *ExampleScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
+func (sched *MesosRunonceScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
 	log.V(1).Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
 	eventCh <- status
 
@@ -369,7 +369,7 @@ func main() {
 
 	publishedAddress := parseIP(*address)
 	config := sched.DriverConfig{
-		Scheduler:        newExampleScheduler(exec),
+		Scheduler:        newMesosRunonceScheduler(exec),
 		Framework:        fwinfo,
 		Master:           *master,
 		Credential:       cred,
