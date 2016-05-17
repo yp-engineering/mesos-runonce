@@ -24,7 +24,7 @@ type DirNotFound struct {
 }
 
 func (d *DirNotFound) Error() string {
-	return fmt.Sprintf("Directory not for with task status of: %#v", d.MesosTaskStatusData)
+	return fmt.Sprintf("Directory not found for task status of: %#v", d.MesosTaskStatusData)
 }
 
 type MesosState struct {
