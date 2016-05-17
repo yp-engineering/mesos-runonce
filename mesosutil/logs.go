@@ -1,3 +1,4 @@
+// Package mesosutil provides a way to fetch logs from a mesos-agent
 package mesosutil
 
 import (
@@ -10,6 +11,7 @@ import (
 	mesos "github.com/mesos/mesos-go/mesosproto"
 )
 
+// Used to capture errors from talking to different backends. See fetchUrl.
 type ProxyError struct {
 	Status     string
 	StatusCode int
@@ -19,6 +21,7 @@ func (p *ProxyError) Error() string {
 	return p.Status
 }
 
+// Used to captures errors when detecting
 type DirNotFound struct {
 	MesosTaskStatusData MesosTaskStatusData
 }
@@ -27,21 +30,25 @@ func (d *DirNotFound) Error() string {
 	return fmt.Sprintf("Directory not found for task status of: %#v", d.MesosTaskStatusData)
 }
 
+// Used to parse needed values from /state.json endpoint in mesos.
 type MesosState struct {
 	CompletedFrameworks []Framework `json:"completed_frameworks"`
 	Frameworks          []Framework
 }
 
+// Used to parse needed values from /state.json endpoint in mesos.
 type Tasks struct {
 	FrameworkId string `json:"framework_id"`
 }
 
+// Used to parse needed values from /state.json endpoint in mesos.
 type Framework struct {
 	Name               string
 	CompletedExecutors []Executor `json:"completed_executors"`
 	Executors          []Executor
 }
 
+// Used to parse needed values from /state.json endpoint in mesos.
 type Executor struct {
 	CompletedTasks []Tasks `json:"completed_tasks"`
 	Tasks          []Tasks
@@ -49,30 +56,36 @@ type Executor struct {
 	Directory      string
 }
 
+// Used to parse needed values from status message we got from mesos.
 type MesosTaskStatusMounts []struct {
 	Source string `json:"Source"`
 }
 
+// Used to parse needed values from status message we got from mesos.
 type MesosTaskStatusConfig struct {
 	Hostname   string `json:"Hostname"`
 	Domainname string `json:"Domainname"`
 }
 
+// Used to parse needed values from status message we got from mesos.
 type MesosTaskStatusData []struct {
 	Mounts MesosTaskStatusMounts `json:"Mounts"`
 	Config MesosTaskStatusConfig `json:"Config"`
 }
 
+// Used to parse log data from the mesos-agent
 type LogData struct {
 	Data   string `json:"data"`
 	Offset int    `json:"offset"`
 }
 
+// Used to keep track of the hostname and directory to go find the logs in.
 type HostDir struct {
 	Host string
 	Dir  string
 }
 
+// Extracts the directory to find the file from the /state.json endpoint
 func (m MesosState) Directory(frameworkId string) string {
 	for _, f := range append(m.CompletedFrameworks, m.Frameworks...) {
 		// should we check for the framework?
@@ -88,6 +101,7 @@ func (m MesosState) Directory(frameworkId string) string {
 	return ""
 }
 
+// Generic function to retrieve a url with error handling and reading of body.
 func fetchUrl(url string) ([]byte, error) {
 	resp, err := defaultClient.Get(url)
 	if err != nil {
@@ -101,6 +115,7 @@ func fetchUrl(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
+// Extract HostDir from the /state.json endpoint when given a message from mesos.
 func hostDirFromState(status *mesos.TaskStatus, frameworkId string) (HostDir, error) {
 	hostname := *status.ContainerStatus.NetworkInfos[0].IpAddress
 	bodyData, err := fetchUrl("http://" + hostname + ":5051/state.json")
@@ -123,6 +138,7 @@ func hostDirFromState(status *mesos.TaskStatus, frameworkId string) (HostDir, er
 	return hostDir, err
 }
 
+// Extract HostDir from a mesos message.
 func hostDirFromTaskStatus(status *mesos.TaskStatus) (HostDir, error) {
 	var (
 		dir  string
@@ -163,6 +179,7 @@ func hostDirFromTaskStatus(status *mesos.TaskStatus) (HostDir, error) {
 	return hostDir, err
 }
 
+// Will obtain the log file you desire from the mesos-agent and react to the status of the message accordingly.
 func FetchLogs(status *mesos.TaskStatus, offset int, file string, frameworkId string) ([]byte, error) {
 	var (
 		dir      string
