@@ -68,6 +68,11 @@ type LogData struct {
 	Offset int    `json:"offset"`
 }
 
+type HostDir struct {
+	Host string
+	Dir  string
+}
+
 func (m MesosState) Directory(frameworkId string) string {
 	for _, f := range append(m.CompletedFrameworks, m.Frameworks...) {
 		// should we check for the framework?
@@ -83,7 +88,7 @@ func (m MesosState) Directory(frameworkId string) string {
 	return ""
 }
 
-func FetchUrl(url string) ([]byte, error) {
+func fetchUrl(url string) ([]byte, error) {
 	resp, err := defaultClient.Get(url)
 	if err != nil {
 		return nil, err
@@ -96,14 +101,9 @@ func FetchUrl(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-type HostDir struct {
-	Host string
-	Dir  string
-}
-
 func hostDirFromState(status *mesos.TaskStatus, frameworkId string) (HostDir, error) {
 	hostname := *status.ContainerStatus.NetworkInfos[0].IpAddress
-	bodyData, err := FetchUrl("http://" + hostname + ":5051/state.json")
+	bodyData, err := fetchUrl("http://" + hostname + ":5051/state.json")
 	if err != nil {
 		return HostDir{}, err
 	}
@@ -187,7 +187,7 @@ func FetchLogs(status *mesos.TaskStatus, offset int, file string, frameworkId st
 	}
 	url := fmt.Sprintf("http://%s:5051/files/read.json?path=%s/%s&offset=%d",
 		hostname, dir, file, offset)
-	bodyData, err := FetchUrl(url)
+	bodyData, err := fetchUrl(url)
 	if err != nil {
 		return nil, err
 	}
