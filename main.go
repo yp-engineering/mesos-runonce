@@ -85,6 +85,9 @@ func newMesosRunonceScheduler(exec *mesos.ExecutorInfo) *MesosRunonceScheduler {
 	}
 }
 
+// ----------------------- Boilerplate ------------------------- //
+// These are more or less here to add the interface for being a mesos scheduler.
+
 func (sched *MesosRunonceScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.V(1).Infoln("Framework Registered with Master ", masterInfo)
 	_frameworkId = frameworkId.GetValue()
@@ -111,6 +114,8 @@ func (sched *MesosRunonceScheduler) ExecutorLost(_ sched.SchedulerDriver, eid *m
 func (sched *MesosRunonceScheduler) Error(_ sched.SchedulerDriver, err string) {
 	log.Exitf("Scheduler received error: %v", err)
 }
+
+// ----------------------- End Boilerplate ------------------------- //
 
 func (sched *MesosRunonceScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
 
@@ -335,19 +340,14 @@ func envVars() *mesos.Environment {
 	return &mesos.Environment{Variables: variables}
 }
 
-// ----------------------- func main() ------------------------- //
-
-func main() {
-
-	// build command executor
-	exec := prepareExecutorInfo()
-
-	// the framework
-	fwinfo := &mesos.FrameworkInfo{
+func fwinfo() *mesos.FrameworkInfo {
+	return &mesos.FrameworkInfo{
 		User: proto.String(*mesosRunasUser),
 		Name: proto.String("mesos-runonce"),
 	}
+}
 
+func cred(fwinfo *mesos.FrameworkInfo) *mesos.Credential {
 	cred := (*mesos.Credential)(nil)
 	if *mesosAuthPrincipal != "" {
 		fwinfo.Principal = proto.String(*mesosAuthPrincipal)
@@ -366,13 +366,19 @@ func main() {
 			cred.Secret = proto.String(string(secret))
 		}
 	}
+	return cred
+}
+
+func config(fwinfo *mesos.FrameworkInfo) sched.DriverConfig {
+	// build command executor
+	exec := prepareExecutorInfo()
 
 	publishedAddress := parseIP(*address)
 	config := sched.DriverConfig{
 		Scheduler:        newMesosRunonceScheduler(exec),
 		Framework:        fwinfo,
 		Master:           *master,
-		Credential:       cred,
+		Credential:       cred(fwinfo),
 		PublishedAddress: publishedAddress,
 		WithAuthContext: func(ctx context.Context) context.Context {
 			ctx = auth.WithLoginProvider(ctx, *authProvider)
@@ -389,13 +395,24 @@ func main() {
 	if *bindingPort != 0 {
 		config.BindingPort = uint16(*bindingPort)
 	}
+	return config
+}
+
+// ----------------------- func main() ------------------------- //
+
+func main() {
+	// the framework
+	fwinfo := fwinfo()
+
+	// the driver config
+	config := config(fwinfo)
 
 	driver, err := sched.NewMesosSchedulerDriver(config)
-
 	if err != nil {
 		log.Errorln("Unable to create a SchedulerDriver ", err.Error())
 	}
 
+	// Don't block on this call because we need printLogs to be the process blocker to ensure we retrieve all the logs.
 	go func() {
 		if stat, err := driver.Run(); err != nil {
 			log.V(1).Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
