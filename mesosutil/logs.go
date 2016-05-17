@@ -10,8 +10,8 @@ import (
 	mesos "github.com/mesos/mesos-go/mesosproto"
 )
 
-func FetchLog(logUrl string) ([]byte, error) {
-	resp, err := defaultClient.Get(logUrl)
+func FetchUrl(url string) ([]byte, error) {
+	resp, err := defaultClient.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -99,16 +99,9 @@ func FetchLogs(status *mesos.TaskStatus, offset int, file string, frameworkId st
 		mesos.TaskState_TASK_KILLED:
 		hostname = *status.ContainerStatus.NetworkInfos[0].IpAddress
 		url := "http://" + hostname + ":5051/state.json"
-		resp, err := defaultClient.Get(url)
-		if err != nil {
-			return nil, err
-		}
-		if resp.StatusCode != 200 {
-			return nil, ProxyError{resp.Status, resp.StatusCode}
-		}
-		defer resp.Body.Close()
+		bodyData, _ := FetchUrl(url)
 		var ms MesosState
-		err = json.NewDecoder(resp.Body).Decode(&ms)
+		err = json.Unmarshal(bodyData, &ms)
 		if err != nil {
 			return nil, err
 		}
@@ -136,9 +129,9 @@ func FetchLogs(status *mesos.TaskStatus, offset int, file string, frameworkId st
 		}
 		hostname = firstMtsd.Config.Hostname + domainName
 	}
-	logUrl := fmt.Sprintf("http://%s:5051/files/read.json?path=%s/%s&offset=%d",
+	url := fmt.Sprintf("http://%s:5051/files/read.json?path=%s/%s&offset=%d",
 		hostname, dir, file, offset)
-	bodyData, _ := FetchLog(logUrl)
+	bodyData, _ := FetchUrl(url)
 
 	var logData LogData
 	err = json.Unmarshal(bodyData, &logData)
