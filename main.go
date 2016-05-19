@@ -19,21 +19,19 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	log "github.com/golang/glog"
 	"github.com/mesos/mesos-go/auth"
 	"github.com/mesos/mesos-go/auth/sasl"
-	"github.com/mesos/mesos-go/auth/sasl/mech"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	util "github.com/mesos/mesos-go/mesosutil"
 	sched "github.com/mesos/mesos-go/scheduler"
@@ -44,26 +42,7 @@ import (
 var eventCh = make(chan *mesos.TaskStatus)
 var _frameworkId string
 var exitStatus = 0
-
-var (
-	address      = flag.String("address", "127.0.0.1", "Address for mesos to callback on.")
-	bindingPort  = flag.Uint("port", 0, "Port for address to use for mesos to callback.")
-	authProvider = flag.String("authentication-provider", sasl.ProviderName,
-		fmt.Sprintf("Authentication provider to use, default is SASL that supports mechanisms: %+v", mech.ListSupported()))
-	master               = flag.String("master", "127.0.0.1:5050", "Master address <ip:port>")
-	taskCount            = flag.Int("task-count", 1, "Total task count to run.")
-	mesosTaskID          = flag.String("task-id", "", "Mesos task id to identify the task.")
-	mesosTaskName        = flag.String("task-name", "", "Mesos task name to label the task.")
-	mesosAuthPrincipal   = flag.String("principal", "", "Mesos authentication principal.")
-	mesosAuthSecretFile  = flag.String("secret-file", "", "Mesos authentication secret file.")
-	mesosRunasUser       = flag.String("user", "root", "Mesos user to run tasks as.")
-	dockerImage          = flag.String("docker-image", "", "Docker image to run.")
-	dockerCmd            = flag.String("docker-cmd", "", "Docker command to run.")
-	dockerForcePullImage = flag.Bool("force-pull", false, "Boolean for forcing pull of image before run.")
-	dockerEnvVars        = flag.String("env-vars", "", "Docker env vars for the container. E.g. -env-vars='{\"env\":{\"FOO\":\"bar\"}}'")
-	dCpus                = flag.Float64("cpus", 1.0, "How many CPUs to use.")
-	dMem                 = flag.Float64("mem", 10, "How much memory to use.")
-)
+var config *Config
 
 type MesosRunonceScheduler struct {
 	executor      *mesos.ExecutorInfo
@@ -72,21 +51,7 @@ type MesosRunonceScheduler struct {
 	totalTasks    int
 }
 
-type DockerEnvVars struct {
-	Env map[string]string `json:"env"`
-}
-
-func newMesosRunonceScheduler(exec *mesos.ExecutorInfo) *MesosRunonceScheduler {
-	return &MesosRunonceScheduler{
-		executor:      exec,
-		tasksLaunched: 0,
-		tasksFinished: 0,
-		totalTasks:    *taskCount,
-	}
-}
-
-// ----------------------- Boilerplate ------------------------- //
-// These are more or less here to add the interface for being a mesos scheduler.
+// ----------------------- Mesos interface ------------------------- //
 
 func (sched *MesosRunonceScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.V(1).Infoln("Framework Registered with Master ", masterInfo)
@@ -114,8 +79,6 @@ func (sched *MesosRunonceScheduler) ExecutorLost(_ sched.SchedulerDriver, eid *m
 func (sched *MesosRunonceScheduler) Error(_ sched.SchedulerDriver, err string) {
 	log.Exitf("Scheduler received error: %v", err)
 }
-
-// ----------------------- End Boilerplate ------------------------- //
 
 func (sched *MesosRunonceScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
 
@@ -150,21 +113,24 @@ func (sched *MesosRunonceScheduler) ResourceOffers(driver sched.SchedulerDriver,
 		remainingCpus := cpus
 		remainingMems := mems
 
+		dCpus := config.Task.Docker.Cpus
+		dMem := config.Task.Docker.Mem
+
 		var tasks []*mesos.TaskInfo
 		for sched.tasksLaunched < sched.totalTasks &&
-			*dCpus <= remainingCpus &&
-			*dMem <= remainingMems {
+			dCpus <= remainingCpus &&
+			dMem <= remainingMems {
 
 			sched.tasksLaunched++
 
 			tID := strconv.Itoa(sched.tasksLaunched)
-			if *mesosTaskID != "" {
-				tID = *mesosTaskID
+			if config.Task.Id != "" {
+				tID = config.Task.Id
 			}
 
 			tName := "mesos-runonce-" + tID
-			if *mesosTaskName != "" {
-				tName = *mesosTaskName
+			if config.Task.Name != "" {
+				tName = config.Task.Name
 			}
 
 			taskId := &mesos.TaskID{
@@ -177,8 +143,8 @@ func (sched *MesosRunonceScheduler) ResourceOffers(driver sched.SchedulerDriver,
 				TaskId:  taskId,
 				SlaveId: offer.SlaveId,
 				Resources: []*mesos.Resource{
-					util.NewScalarResource("cpus", *dCpus),
-					util.NewScalarResource("mem", *dMem),
+					util.NewScalarResource("cpus", dCpus),
+					util.NewScalarResource("mem", dMem),
 				},
 				Command: &mesos.CommandInfo{
 					Shell: proto.Bool(false),
@@ -186,26 +152,26 @@ func (sched *MesosRunonceScheduler) ResourceOffers(driver sched.SchedulerDriver,
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
 					Docker: &mesos.ContainerInfo_DockerInfo{
-						Image:          proto.String(*dockerImage),
-						ForcePullImage: proto.Bool(*dockerForcePullImage),
+						Image:          proto.String(config.Task.Docker.Image),
+						ForcePullImage: proto.Bool(config.Task.Docker.ForcePullImage),
 					},
 				},
 			}
 			log.V(1).Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
 
-			if *dockerEnvVars != "" {
-				task.Command.Environment = envVars()
+			if len(config.Task.Docker.Env) != 0 || config.Task.Docker.EnvString != "" {
+				task.Command.Environment = config.EnvVars()
 			}
 
 			// Allow arbitrary commands, else just use whatever the image defines in CMD
-			if *dockerCmd != "" {
-				task.Command.Value = proto.String(*dockerCmd)
+			if config.Task.Docker.Cmd != "" {
+				task.Command.Value = proto.String(config.Task.Docker.Cmd)
 				task.Command.Shell = proto.Bool(true)
 			}
 
 			tasks = append(tasks, task)
-			remainingCpus -= *dCpus
-			remainingMems -= *dMem
+			remainingCpus -= dCpus
+			remainingMems -= dMem
 		}
 		log.V(1).Infoln("Launching ", len(tasks), "tasks for offer", offer.Id.GetValue())
 		driver.LaunchTasks([]*mesos.OfferID{offer.Id}, tasks, &mesos.Filters{RefuseSeconds: proto.Float64(5)})
@@ -240,12 +206,7 @@ func (sched *MesosRunonceScheduler) StatusUpdate(driver sched.SchedulerDriver, s
 	}
 }
 
-// ----------------------- func init() ------------------------- //
-
-func init() {
-	flag.Parse()
-	log.V(1).Infoln("Initializing the Example Scheduler...")
-}
+// ----------------------- Helper methods ------------------------- //
 
 func printLogs() {
 	timer := time.Tick(500 * time.Millisecond)
@@ -325,63 +286,59 @@ func parseIP(address string) net.IP {
 	return addr[0]
 }
 
-func envVars() *mesos.Environment {
-	var dEnvVars DockerEnvVars
-	err := json.Unmarshal([]byte(*dockerEnvVars), &dEnvVars)
-	if err != nil {
-		log.Exitf("JSON error: %#v with unparsable env vars: %+v", err, *dockerEnvVars)
+func newMesosRunonceScheduler(exec *mesos.ExecutorInfo) *MesosRunonceScheduler {
+	return &MesosRunonceScheduler{
+		executor:      exec,
+		tasksLaunched: 0,
+		tasksFinished: 0,
+		totalTasks:    config.Runonce.TaskCount,
 	}
-
-	var variables []*mesos.Environment_Variable
-	for key, value := range dEnvVars.Env {
-		variables = append(variables, &mesos.Environment_Variable{Name: proto.String(key), Value: proto.String(value)})
-	}
-
-	return &mesos.Environment{Variables: variables}
 }
 
 func fwinfo() *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{
-		User: proto.String(*mesosRunasUser),
+		User: proto.String(config.Runonce.MesosRunasUser),
 		Name: proto.String("mesos-runonce"),
 	}
 }
 
 func cred(fwinfo *mesos.FrameworkInfo) *mesos.Credential {
 	cred := (*mesos.Credential)(nil)
-	if *mesosAuthPrincipal != "" {
-		fwinfo.Principal = proto.String(*mesosAuthPrincipal)
+	mesosAuthPrincipal := config.Runonce.AuthPrincipal
+	if mesosAuthPrincipal != "" {
+		fwinfo.Principal = proto.String(mesosAuthPrincipal)
 		cred = &mesos.Credential{
-			Principal: proto.String(*mesosAuthPrincipal),
+			Principal: proto.String(mesosAuthPrincipal),
 		}
-		if *mesosAuthSecretFile != "" {
-			_, err := os.Stat(*mesosAuthSecretFile)
+		mesosAuthSecretFile := config.Runonce.AuthSecretFile
+		if mesosAuthSecretFile != "" {
+			_, err := os.Stat(mesosAuthSecretFile)
 			if err != nil {
 				log.Exit("missing secret file: ", err.Error())
 			}
-			secret, err := ioutil.ReadFile(*mesosAuthSecretFile)
+			secret, err := ioutil.ReadFile(mesosAuthSecretFile)
 			if err != nil {
 				log.Exit("failed to read secret file: ", err.Error())
 			}
-			cred.Secret = proto.String(string(secret))
+			cred.Secret = proto.String(strings.TrimSuffix(string(secret), "\n"))
 		}
 	}
 	return cred
 }
 
-func config(fwinfo *mesos.FrameworkInfo) sched.DriverConfig {
+func driverConfig(fwinfo *mesos.FrameworkInfo) sched.DriverConfig {
 	// build command executor
 	exec := prepareExecutorInfo()
 
-	publishedAddress := parseIP(*address)
-	config := sched.DriverConfig{
+	publishedAddress := parseIP(config.Runonce.Address)
+	dConfig := sched.DriverConfig{
 		Scheduler:        newMesosRunonceScheduler(exec),
 		Framework:        fwinfo,
-		Master:           *master,
+		Master:           config.Runonce.Master,
 		Credential:       cred(fwinfo),
 		PublishedAddress: publishedAddress,
 		WithAuthContext: func(ctx context.Context) context.Context {
-			ctx = auth.WithLoginProvider(ctx, *authProvider)
+			ctx = auth.WithLoginProvider(ctx, config.Runonce.AuthProvider)
 			ctx = sasl.WithBindingAddress(ctx, publishedAddress)
 			return ctx
 		},
@@ -392,22 +349,22 @@ func config(fwinfo *mesos.FrameworkInfo) sched.DriverConfig {
 	// NOTE only affects main PID, meaning the authentication step uses
 	// another PID which picks a random (32K range) port :(. Opened
 	// https://github.com/mesos/mesos-go/issues/229 to discuss.
-	if *bindingPort != 0 {
-		config.BindingPort = uint16(*bindingPort)
+	if config.Runonce.BindingPort != 0 {
+		dConfig.BindingPort = uint16(config.Runonce.BindingPort)
 	}
-	return config
+	return dConfig
 }
 
 // ----------------------- func main() ------------------------- //
 
 func main() {
+	log.V(1).Infoln("Initializing the Example Scheduler...")
+	config = loadConfig()
+
 	// the framework
 	fwinfo := fwinfo()
 
-	// the driver config
-	config := config(fwinfo)
-
-	driver, err := sched.NewMesosSchedulerDriver(config)
+	driver, err := sched.NewMesosSchedulerDriver(driverConfig(fwinfo))
 	if err != nil {
 		log.Errorln("Unable to create a SchedulerDriver ", err.Error())
 	}
