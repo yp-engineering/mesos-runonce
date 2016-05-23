@@ -1,22 +1,26 @@
 {
         "runonce": {
-                "address": "routable-ip-address-to-localhost",
-                "master": "mesos-master:5050",
-                "principal": "optional-authentication-principal",
-                "secret_file": "/path/to/optional-secret-file"
+                "address": "localhost",
+                "port": 123,
+                "authentication_provider": "SAML",
+                "master": "123.123.123.123",
+                "task_count": 2,
+                "user": "username",
+                "principal": "principalname",
+                "secret_file": "secretfile"
         },
         "task": {
-                "id": "optional-id-of-task",
-                "name": "optional-name-of-task",
+                "id": "id-of-task",
+                "name": "name-of-task",
                 "docker": {
-                        "image": "docker-image",
-                        "cmd": "optional-command",
-                        "force_pull": Boolean (optional),
+                        "image": "alpine",
+                        "cmd": "ls",
+                        "force_pull": true,
                         "env": {
-                                "SOME": "var"
+                                "cow": "boy"
                         },
-                        "cpus": Float,
-                        "mem": Float
+                        "cpus": 1.2,
+                        "mem": 83.3
                 }
         }
 }
