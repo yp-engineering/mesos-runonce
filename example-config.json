@@ -1,0 +1,22 @@
+{
+        "runonce": {
+                "address": "routable-ip-address-to-localhost",
+                "master": "mesos-master:5050",
+                "principal": "optional-authentication-principal",
+                "secret_file": "/path/to/optional-secret-file"
+        },
+        "task": {
+                "id": "optional-id-of-task",
+                "name": "optional-name-of-task",
+                "docker": {
+                        "image": "docker-image",
+                        "cmd": "optional-command",
+                        "force_pull": Boolean (optional),
+                        "env": {
+                                "SOME": "var"
+                        },
+                        "cpus": Float,
+                        "mem": Float
+                }
+        }
+}
