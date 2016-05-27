@@ -223,6 +223,7 @@ func printLogs() {
 				mesos.TaskState_TASK_STARTING:
 				readableStatus = status
 			case mesos.TaskState_TASK_FAILED,
+				mesos.TaskState_TASK_LOST,
 				mesos.TaskState_TASK_KILLED:
 				readableStatus = status
 				finished = true
