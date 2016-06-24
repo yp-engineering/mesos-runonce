@@ -71,7 +71,7 @@ func (sched *MesosRunonceScheduler) FrameworkMessage(_ sched.SchedulerDriver, ei
 	log.Errorf("framework message from executor %q slave %q: %q", eid, sid, msg)
 }
 func (sched *MesosRunonceScheduler) SlaveLost(_ sched.SchedulerDriver, sid *mesos.SlaveID) {
-	log.Exitf("slave lost: %v", sid)
+	log.V(1).Infof("slave lost: %v", sid)
 }
 func (sched *MesosRunonceScheduler) ExecutorLost(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, code int) {
 	log.Errorf("executor %q lost on slave %q code %d", eid, sid, code)
