@@ -157,7 +157,7 @@ func (sched *MesosRunonceScheduler) ResourceOffers(driver sched.SchedulerDriver,
 					},
 				},
 			}
-			log.V(1).Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
+			fmt.Printf("Prepared task: [%s] with offer [%s] for launch on host [%s]\n", task.GetName(), offer.Id.GetValue(), *offer.Hostname)
 
 			if len(config.Task.Docker.Env) != 0 || config.Task.Docker.EnvString != "" {
 				task.Command.Environment = config.EnvVars()
