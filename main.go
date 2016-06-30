@@ -65,7 +65,7 @@ func (sched *MesosRunonceScheduler) Disconnected(sched.SchedulerDriver) {
 	log.Exitf("disconnected from master, aborting")
 }
 func (sched *MesosRunonceScheduler) OfferRescinded(_ sched.SchedulerDriver, oid *mesos.OfferID) {
-	log.Exitf("offer rescinded: %v", oid)
+	log.V(1).Infof("offer rescinded: %v", oid)
 }
 func (sched *MesosRunonceScheduler) FrameworkMessage(_ sched.SchedulerDriver, eid *mesos.ExecutorID, sid *mesos.SlaveID, msg string) {
 	log.Errorf("framework message from executor %q slave %q: %q", eid, sid, msg)
