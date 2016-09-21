@@ -197,7 +197,7 @@ func (sched *MesosRunonceScheduler) StatusUpdate(driver sched.SchedulerDriver, s
 		status.GetState() == mesos.TaskState_TASK_ERROR {
 		exitStatus = 1
 		log.Warningf("mesos TaskStatus: %v", status)
-		driver.Abort()
+		driver.Stop(false)
 		log.Errorln(
 			"Aborting because task", status.TaskId.GetValue(),
 			"is in unexpected state", status.State.String(),
