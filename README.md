@@ -1,5 +1,5 @@
 # mesos-runonce
-Mesos framework to run a command once.
+Mesos framework to run a docker container once.
 
 # Download
 Get the [latest binary](/../../releases/latest) from github releases.
