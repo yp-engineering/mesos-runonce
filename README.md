@@ -1,5 +1,6 @@
 # mesos-runonce
-Mesos framework to run a docker container once.
+Mesos framework to run a docker container once. It will connect, get offers,
+launch container, stream logs and then disconnect from mesos.
 
 # Download
 Get the [latest binary](/../../releases/latest) from github releases.
