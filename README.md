@@ -23,12 +23,18 @@ export MESOS_MASTER=your-master:5050 # doesn't have to be leader
 
 To see all of the command line options:
 
-        ./mesos-runonce -h
+```bash
+./mesos-runonce -h
+```
 
 To use a config.json file (see [example-config.json](example-config.json) for JSON spec):
 
-        ./mesos-runonce -config config.json
+```bash
+./mesos-runonce -config config.json
+```
 
 To override values in the config.json:
 
-        ./mesos-runonce -config config.json -principal $USER
+```bash
+./mesos-runonce -config config.json -principal $USER
+```
