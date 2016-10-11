@@ -232,19 +232,17 @@ func printLogs() {
 			}
 		case <-timer:
 			if readableStatus != nil {
-				go func() {
-					if finished {
-						time.Sleep(3 * time.Second)
-					}
-					x := printLog(readableStatus, oout, os.Stdout)
-					y := printLog(readableStatus, oerr, os.Stderr)
-					if finished && x == 0 && y == 0 {
-						log.V(1).Infof("framework terminating")
-						os.Exit(exitStatus)
-					}
-					oout += x
-					oerr += y
-				}()
+				if finished {
+					time.Sleep(3 * time.Second)
+				}
+				x := printLog(readableStatus, oout, os.Stdout)
+				y := printLog(readableStatus, oerr, os.Stderr)
+				if finished && x == 0 && y == 0 {
+					log.V(1).Infof("framework terminating")
+					os.Exit(exitStatus)
+				}
+				oout += x
+				oerr += y
 			}
 		}
 	}
