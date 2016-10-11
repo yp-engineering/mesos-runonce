@@ -14,34 +14,7 @@ import (
 	mesos "github.com/mesos/mesos-go/mesosproto"
 )
 
-/* Example JSON that could be in your config.json that is passed in via -config=config.json
-{
-        "runonce": {
-                "address": "localhost",
-                "port": 123,
-                "authentication_provider": "SAML",
-                "master": "123.123.123.123",
-                "task_count": 2,
-                "user": "username",
-                "principal": "principalname",
-                "secret_file": "secretfile"
-        },
-        "task": {
-                "id": "id-of-task",
-                "name": "name-of-task",
-                "docker": {
-                        "image": "alpine",
-                        "cmd": "ls",
-                        "force_pull": true,
-                        "env": {
-                                "cow": "boy"
-                        },
-                        "cpus": 1.2,
-                        "mem": 83.3
-                }
-        }
-}
-*/
+// See example-config.json for an example of this config.
 
 type Docker struct {
 	Image          string            `json:"image"`
