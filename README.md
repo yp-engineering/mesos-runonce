@@ -2,7 +2,7 @@
 Mesos framework to run a command once.
 
 # Download
-Get the [latest binary](/releases/latest) from github releases.
+Get the [latest binary](/../../releases/latest) from github releases.
 
 # Usage
 A basic working example
