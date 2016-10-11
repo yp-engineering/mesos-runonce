@@ -200,8 +200,8 @@ func FetchLogs(status *mesos.TaskStatus, offset int, file string, frameworkId st
 			return nil, err
 		}
 		hostname, dir = hostDir.Host, hostDir.Dir
-
 	}
+
 	url := fmt.Sprintf("http://%s:5051/files/read.json?path=%s/%s&offset=%d",
 		hostname, dir, file, offset)
 	bodyData, err := fetchUrl(url)
