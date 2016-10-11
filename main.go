@@ -208,14 +208,12 @@ func (sched *MesosRunonceScheduler) StatusUpdate(driver sched.SchedulerDriver, s
 
 // ----------------------- Helper methods ------------------------- //
 
-func printLogs(driver *sched.MesosSchedulerDriver) {
+func printLogs() {
 	timer := time.Tick(500 * time.Millisecond)
 	var (
 		readableStatus *mesos.TaskStatus
 		finished       bool
 		oout, oerr     int
-		ooutChan       = make(chan (int))
-		oerrChan       = make(chan (int))
 	)
 	for {
 		select {
@@ -235,7 +233,6 @@ func printLogs(driver *sched.MesosSchedulerDriver) {
 		case <-timer:
 			if readableStatus != nil {
 				go func() {
-					// Wait till task writes all logs
 					if finished {
 						time.Sleep(3 * time.Second)
 					}
@@ -243,18 +240,12 @@ func printLogs(driver *sched.MesosSchedulerDriver) {
 					y := printLog(readableStatus, oerr, os.Stderr)
 					if finished && x == 0 && y == 0 {
 						log.V(1).Infof("framework terminating")
-						if !driver.Connected() {
-							os.Exit(exitStatus)
-						}
+						os.Exit(exitStatus)
 					}
-					ooutChan <- x
-					oerrChan <- y
+					oout += x
+					oerr += y
 				}()
 			}
-		case x := <-ooutChan:
-			oout += x
-		case y := <-oerrChan:
-			oerr += y
 		}
 	}
 }
@@ -389,5 +380,5 @@ func main() {
 		}
 	}()
 
-	printLogs(driver)
+	printLogs()
 }
