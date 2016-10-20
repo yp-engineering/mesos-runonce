@@ -298,11 +298,16 @@ func newMesosRunonceScheduler(exec *mesos.ExecutorInfo) *MesosRunonceScheduler {
 }
 
 func fwinfo() *mesos.FrameworkInfo {
-	return &mesos.FrameworkInfo{
+	fw := &mesos.FrameworkInfo{
 		User: proto.String(config.Runonce.MesosRunasUser),
 		Name: proto.String("mesos-runonce"),
-		Role: proto.String(config.Runonce.MesosRole),
 	}
+
+	if config.Runonce.MesosRole != "" {
+		fw.Role = proto.String(config.Runonce.MesosRole)
+	}
+
+	return fw
 }
 
 func cred(fwinfo *mesos.FrameworkInfo) *mesos.Credential {
