@@ -33,6 +33,7 @@ type Runonce struct {
 	Master         string `json:"master"`
 	TaskCount      int    `json:"task_count"`
 	MesosRunasUser string `json:"user"`
+	MesosRole      string `json:"role"`
 	AuthPrincipal  string `json:"principal"`
 	AuthSecretFile string `json:"secret_file"`
 }
@@ -113,6 +114,7 @@ func loadConfig() *Config {
 	flag.StringVar(&cfg.Runonce.AuthSecretFile, "secret-file", "", "Mesos authentication secret file.")
 	flag.StringVar(&cfg.Runonce.Master, "master", "127.0.0.1:5050", "Master address <ip:port>")
 	flag.StringVar(&cfg.Runonce.MesosRunasUser, "user", "root", "Mesos user to run tasks as.")
+	flag.StringVar(&cfg.Runonce.MesosRole, "role", "prod", "Mesos role to run tasks with.")
 	flag.StringVar(&cfg.Task.Docker.Cmd, "docker-cmd", "", "Docker command to run.")
 	flag.StringVar(&cfg.Task.Docker.EnvString, "env-vars", "", "Docker env vars for the container. E.g. -env-vars='{\"env\":{\"FOO\":\"bar\"}}'")
 	flag.StringVar(&cfg.Task.Docker.Image, "docker-image", "", "Docker image to run.")

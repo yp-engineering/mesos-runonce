@@ -301,6 +301,7 @@ func fwinfo() *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{
 		User: proto.String(config.Runonce.MesosRunasUser),
 		Name: proto.String("mesos-runonce"),
+		Role: proto.String(config.Runonce.MesosRole),
 	}
 }
 
