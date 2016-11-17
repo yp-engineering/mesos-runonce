@@ -380,6 +380,12 @@ func (m *MesosMessenger) decodeLoop() {
 			}
 		}
 		log.V(2).Infof("Receiving message %v from %v\n", msg.Name, msg.UPID)
+		// (hekaldama) HACK - I don't need these in my code and they
+		// cause panic in this version because they don't exist as a
+		// message. This makes my vendored version fork from main.
+		if msg.Name == "mesos.internal.InverseOffersMessage" {
+			continue
+		}
 		msg.ProtoMessage = reflect.New(m.installedMessages[msg.Name]).Interface().(proto.Message)
 		if err := proto.Unmarshal(msg.Bytes, msg.ProtoMessage); err != nil {
 			log.Errorf("Failed to unmarshal message %v: %v\n", msg, err)
